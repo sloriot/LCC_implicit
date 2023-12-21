@@ -14,7 +14,7 @@ struct LCC_items
   template <class LCC>
   struct Dart_wrapper
   {
-    typedef CGAL::Cell_attribute_with_point<LCC> Vertex_attrib;
+    typedef CGAL::Cell_attribute_with_point<LCC, std::size_t> Vertex_attrib;
     typedef std::tuple<Vertex_attrib> Attributes;
   };
 };
@@ -91,7 +91,7 @@ typename LCC::Dart_descriptor fill_lcc
   for (TVertex_iterator itv = atr.vertices_begin();
        itv != atr.vertices_end(); ++itv)
   {
-    TV[itv] = alcc.create_vertex_attribute(itv->point()/* , itv->id() */);
+    TV[itv] = alcc.create_vertex_attribute(itv->point(), itv->id());
   }
 
   // Create the tetrahedron and create a map to link Cell_iterator
