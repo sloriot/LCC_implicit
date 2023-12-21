@@ -200,7 +200,6 @@ int main()
 
   for(Dart_descriptor dd : to_split)
   {
-    std::cout << "split\n";
     std::size_t srci = lcc.info<0>(dd);
     std::size_t tgti = lcc.info<0>(lcc.beta<0>(dd));
     double srcv = implicit_values[srci][0];
@@ -211,12 +210,11 @@ int main()
 
     Point b = CGAL::barycenter(src, -tgtv/(srcv-tgtv), tgt, srcv/(srcv-tgtv));
 
-    Dart_descriptor new_dd = lcc.insert_cell_0_in_cell_1(dd);
-    lcc.point(new_dd) = b;
+    Dart_descriptor new_dd = lcc.insert_point_in_cell<1>(dd, b);
     lcc.info<0>(new_dd)=-1;
   }
 
-  //~ CGAL::draw(lcc);
+  CGAL::draw(lcc);
 
 
 }
