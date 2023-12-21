@@ -163,11 +163,60 @@ int main()
   }
 
 
+  // import DT3 in LCC
   LCC lcc;
   std::map<DT::Cell_handle, Dart_descriptor > vol_to_dart;
-
   fill_lcc(lcc, dt, nb_points, &vol_to_dart);
 
-  CGAL::draw(lcc);
+
+  //evaluate implicit function on DT
+  double r2 = 1;
+  Point c(0,0,0);
+  //~ auto plane_implicit = [](const Point_3& p)
+  //~ {
+    //~ return
+  //~ }
+
+  std::vector< std::array<double,2> > implicit_values(nb_points);
+  for (std::size_t i=0; i<nb_points; ++i)
+  {
+    implicit_values[i][0] = CGAL::squared_distance(c, vertices[i]->point()) - r2;
+  }
+
+
+  std::vector<Dart_descriptor> to_split;
+  for (LCC::Dart& d : lcc.one_dart_per_cell<1>())
+  {
+    Dart_descriptor dd = lcc.dart_descriptor(d);
+
+
+    std::size_t srci = lcc.info<0>(dd);
+    std::size_t tgti = lcc.info<0>(lcc.beta<0>(dd));
+    if ( (implicit_values[srci][0]<0) != (implicit_values[tgti][0]<0) )
+      to_split.push_back(dd);
+  }
+
+  std::cout << "to_split.size() " << to_split.size() << "\n";
+
+  for(Dart_descriptor dd : to_split)
+  {
+    std::cout << "split\n";
+    std::size_t srci = lcc.info<0>(dd);
+    std::size_t tgti = lcc.info<0>(lcc.beta<0>(dd));
+    double srcv = implicit_values[srci][0];
+    double tgtv = implicit_values[tgti][0];
+
+    Point src = lcc.point(dd),
+          tgt = lcc.point(lcc.beta<0>(dd));
+
+    Point b = CGAL::barycenter(src, -tgtv/(srcv-tgtv), tgt, srcv/(srcv-tgtv));
+
+    Dart_descriptor new_dd = lcc.insert_cell_0_in_cell_1(dd);
+    lcc.point(new_dd) = b;
+    lcc.info<0>(new_dd)=-1;
+  }
+
+  //~ CGAL::draw(lcc);
+
 
 }
