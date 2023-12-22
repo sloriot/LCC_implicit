@@ -65,67 +65,49 @@ using DT = CGAL::Delaunay_triangulation_3<K, TDS>;
 
 // modified version of CGAL::import_from_triangulation_3
 template < class LCC, class Triangulation >
-typename LCC::Dart_descriptor fill_lcc
-(LCC& alcc, const Triangulation &atr,
+void fill_lcc
+(LCC& alcc, const Triangulation &atr, std::size_t nb_fvh,
  std::map<typename Triangulation::Cell_handle,
           typename LCC::Dart_descriptor >* avol_to_dart=nullptr)
 {
   static_assert( LCC::dimension>=3 && LCC::ambient_dimension==3 );
 
   // Case of empty triangulations.
-  if (atr.number_of_vertices() == 0) return LCC::null_descriptor;
+  if (nb_fvh == 0) return;
 
   // Check the dimension.
-  if (atr.dimension() != 3) return LCC::null_descriptor;
+  if (atr.dimension() != 3) return;
   CGAL_assertion(atr.is_valid());
 
   typedef typename Triangulation::Vertex_handle    TVertex_handle;
-  typedef typename Triangulation::Vertex_iterator  TVertex_iterator;
-  typedef typename Triangulation::Cell_iterator    TCell_iterator;
-  typedef typename std::map
-    < TCell_iterator, typename LCC::Dart_descriptor >::iterator itmap_tcell;
+  typedef typename Triangulation::Cell_handle      TCell_handle;
 
   // Create vertices in the map and associate in a map
   // TVertex_handle and vertices in the map.
-  std::map< TVertex_handle, typename LCC::Vertex_attribute_descriptor > TV;
-  for (TVertex_iterator itv = atr.vertices_begin();
-       itv != atr.vertices_end(); ++itv)
+  std::vector<typename LCC::Vertex_attribute_descriptor > TV(nb_fvh);
+  for (TVertex_handle vh : atr.finite_vertex_handles())
   {
-    TV[itv] = alcc.create_vertex_attribute(itv->point(), itv->id());
+    TV[vh->id()] = alcc.create_vertex_attribute(vh->point(), vh->id());
   }
 
   // Create the tetrahedron and create a map to link Cell_iterator
   // and tetrahedron.
-  TCell_iterator it;
-
-  std::map<typename Triangulation::Cell_handle, typename LCC::Dart_descriptor> TC;
-  std::map<typename Triangulation::Cell_handle, typename LCC::Dart_descriptor>*
+  std::map<TCell_handle, typename LCC::Dart_descriptor> TC;
+  std::map<TCell_handle, typename LCC::Dart_descriptor>*
     mytc = (avol_to_dart==nullptr?&TC:avol_to_dart);
 
-  itmap_tcell maptcell_it;
+  typename LCC::Dart_descriptor res=LCC::null_descriptor,
+                                cur=LCC::null_descriptor,
+                                neighbor=LCC::null_descriptor;
 
-  typename LCC::Dart_descriptor res=LCC::null_descriptor, dart=LCC::null_descriptor;
-  typename LCC::Dart_descriptor cur=LCC::null_descriptor, neighbor=LCC::null_descriptor;
-
-  for (it = atr.cells_begin(); it != atr.cells_end(); ++it)
+  for (TCell_handle ch : atr.finite_cell_handles())
   {
     {
-      res = alcc.make_tetrahedron(TV[it->vertex(0)],
-                                  TV[it->vertex(1)],
-                                  TV[it->vertex(2)],
-                                  TV[it->vertex(3)]);
+      res = alcc.make_tetrahedron(TV[ch->vertex(0)->id()],
+                                  TV[ch->vertex(1)->id()],
+                                  TV[ch->vertex(2)->id()],
+                                  TV[ch->vertex(3)->id()]);
 
-      if ( dart==LCC::null_descriptor )
-      {
-        if ( it->vertex(0) == atr.infinite_vertex() )
-          dart = res;
-        else if ( it->vertex(1) == atr.infinite_vertex() )
-          dart = alcc.next(res);
-        else if ( it->vertex(2) == atr.infinite_vertex() )
-          dart = alcc.previous(res);
-        else if ( it->vertex(3) == atr.infinite_vertex() )
-          dart = alcc.previous(alcc.template opposite<2>(res));
-      }
 
       for (unsigned int i = 0; i < 4; ++i)
       {
@@ -137,10 +119,10 @@ typename LCC::Dart_descriptor fill_lcc
         case 3: cur = res; break;
         }
 
-        maptcell_it = mytc->find(it->neighbor(i));
+        auto maptcell_it = mytc->find(ch->neighbor(i));
         if (maptcell_it != mytc->end())
         {
-          switch (atr.mirror_index(it,i) )
+          switch (atr.mirror_index(ch,i) )
           {
           case 0: neighbor = alcc.template opposite<2>(alcc.next(maptcell_it->second));
             break;
@@ -155,11 +137,9 @@ typename LCC::Dart_descriptor fill_lcc
           alcc.template topo_sew<3>(cur, alcc.other_orientation(neighbor));
         }
       }
-      (*mytc)[it] = res;
+      (*mytc)[ch] = res;
     }
   }
-  CGAL_assertion(dart!=LCC::null_descriptor);
-  return dart;
 }
 
 int main()
@@ -186,7 +166,7 @@ int main()
   LCC lcc;
   std::map<DT::Cell_handle, Dart_descriptor > vol_to_dart;
 
-  Dart_descriptor d=fill_lcc(lcc, dt, &vol_to_dart);
+  fill_lcc(lcc, dt, nb_points, &vol_to_dart);
 
   CGAL::draw(lcc);
 
